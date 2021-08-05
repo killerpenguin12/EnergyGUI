@@ -1,0 +1,206 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri May 22 08:44:48 2020
+
+@author: deads
+"""
+
+
+import numpy as np
+from math import pi,cos,pow
+import matplotlib.pyplot as plt
+from random import randrange
+
+
+"Wind - https://www.irena.org/wind"
+"Nuclear - https://www.eia.gov/nuclear/outages/"
+"Nuclear Cost - https://www.world-nuclear.org/information-library/economic-aspects/economics-of-nuclear-power.aspx"
+"Solar - https://www.greenmatch.co.uk/blog/2014/11/how-efficient-are-solar-panels"
+"Solar Cost - https://www.greenmatch.co.uk/blog/2014/08/what-is-the-installation-cost-for-solar-panels"
+"Wind Cost - http://www.windustry.org/how_much_do_wind_turbines_cost"
+"Cost to build plants  - https://marketrealist.com/2015/01/natural-gas-fired-power-plants-cheaper-build/"
+"solar insolation - https://www.pveducation.org/pvcdrom/properties-of-sunlight/calculation-of-solar-insolation"
+"Solar insolation Calc - https://www.pveducation.org/pvcdrom/properties-of-sunlight/air-mass#AMequation"
+"cost of silicon,energywise  - https://www.crmalliance.eu/silicon-metal"
+"Embodied cost - https://en.wikipedia.org/wiki/Embodied_energy"
+"Nuclear Energy Produced - https://www.eia.gov/tools/faqs/faq.php?id=104&t=3"
+"1 MJ/s is the same as one MW"
+"1 MJ is the same as 0.000278 MWh"
+"embodied energy of steel 20.1 MJ/kg"
+"embodied energy of concrete 1.11 MJ/kg"
+"embodied energy of silicone 4070 MJ/m^2"
+"40 metric tons of steel for nuclear reactor/MW"
+"20800 kg steel per nuclear reactor traditional"
+"concrete 456,000kg/MW nuclear reactor traditional"
+"237120000 kg concrete per nuclear reactor traditional"
+"200 tons of steel per wind turbine, 181,400 kg of steel"
+"841,000kg concrete per 2MW wind turbine"
+"27 tons of uranium per year, 24,489kg of uranium"
+"Approx 340Watts hit the surface of the earth per square meter, "
+"https://earthobservatory.nasa.gov/features/EnergyBalance/page2.php"
+"https://www.quora.com/How-much-energy-from-the-Sun-reaches-the-ground-per-square-meter-per-minute-solar-constant"
+
+class Energy:
+    
+    def __init__(self,angle,NumWindDays,effSolar,areaSolar,numWind,numNuclear,years,numSunnyDays):
+        self.dn = np.arange(0,365*years)
+        self.NumWindDays = NumWindDays
+        self.NumSunnyDays = numSunnyDays + 20 #add 20 for cloudy/rainy days
+        self.angleRad = angle * pi/180
+        self.angle = angle
+        self.effSolar = effSolar
+        self.areaSolar = areaSolar
+        self.numWind = numWind
+        self.numNuclear = numNuclear
+        self.years = years
+        
+    def startup(self):
+        self.Nuclear = 520 * 24 #MW/generator * hours
+        self.NuclearCost = 7500000000 #dollars per reactor
+        self.CommWind = 8 * 24#MW/generator commercial * hours
+        self.LandWind = 2 * 24 #MW/generator inland (average in US) * hours
+        self.SeaWind = 4 * 24 #3-5 MW/generator on sea * hours
+        self.solarEff = .20 #Can be anywhere from 15% - 40%
+        self.SolarCost = 2446.48 #dollars per meter squared solar(commerical could be cheaper) 4-3$ per watt and 1 panel is 1kW
+        self.SolarArea = 1.635 #m^2 per panel
+        self.WindCost = 35000000 #dolars per commercial wind turbine. Higher for personal
+        self.EcostWind = 1013.632692 + 259.51578#(MWh) steel and concrete respectively
+        self.EcostSolar = 1.13146 * 1.635#MWh/m^2 * m^2 to get MWh 
+        self.EcostNuclear = 116.22624 + 73170.4896 #MWh steel + MWH concrete
+         
+        
+    def SunIntensity(self):
+        Idirect = 1.353 * pow(0.7,(pow(1/cos(self.angleRad),0.678))) #does not include height above sea level
+        "Id is in units of kW/m^2, to make MW have to divide by 1000"
+        self.Id = (Idirect*5/1000) #flat line, linear value, * 5 for 5 hours and divided to make MW
+        "How much power direct sunlight is everyday"
+       
+        
+    def PossiblePower(self): 
+        powerSolar = self.Id*self.solarEff*self.areaSolar * self.NumSunnyDays 
+        powerNuclear = self.Nuclear * self.numNuclear * 365
+        powerWind = self.LandWind * self.numWind * 365 * 0.25
+        plt.figure(1)
+        plt.title("Power of different sources")
+        plt.ylabel('MW of power generated')
+        plt.xticks(np.arange(3),('Solar','Nuclear','Wind'))
+        plt.bar(np.arange(3),(powerSolar,powerNuclear,powerWind))
+        plt.show()
+        
+    
+    def Cost(self):
+         costSolar = self.SolarCost*self.areaSolar
+         costNuclear = self.NuclearCost * self.numNuclear
+         costWind = self.WindCost * self.numWind
+         plt.bar(np.arange(3),(costSolar,costNuclear,costWind))
+         plt.xticks(np.arange(3),('Solar','Nuclear','Wind'))
+         plt.ylabel('US Dollars')
+         plt.title('Cost of amount of generators')
+         plt.show()
+        
+    def breakEvenS(self):
+        "This will show the breakeven point for Wind and Solar"
+        Solar = self.Id * self.effSolar * self.areaSolar
+       
+        arrayOfSunnyDays = np.zeros(365*self.years).tolist()
+        numOfDays = self.dn.tolist()
+        while sum(arrayOfSunnyDays) < self.NumSunnyDays:
+            i = randrange(0,len(arrayOfSunnyDays))
+            arrayOfSunnyDays[i] = 1
+        
+        powerSolar = [x * Solar for x in arrayOfSunnyDays]
+        
+        powerSolarBASE = []
+        powerSECost = []
+        
+        for i in range(len(numOfDays)):
+            powerSECost.append(self.EcostSolar*self.areaSolar)
+            
+        
+        for i in range(len(arrayOfSunnyDays)):
+            j = 0
+            PowerSum2 = 0
+            while j < i:
+                PowerSum2 += powerSolar[j]
+                j += 1
+            
+            powerSolarBASE.append(PowerSum2)
+        
+        plt.figure(2)
+        plt.xlabel("Days")
+        plt.ylabel("MW Produced")
+        plt.plot(numOfDays,powerSolarBASE,label='Solar Power')
+        plt.plot(numOfDays,powerSECost,label='Solar Energy Cost')
+        plt.title("Solar Break Even")
+        plt.legend()
+    
+    def breakEvenW(self):
+        numOfDays = self.dn.tolist()
+        Wind = self.LandWind * self.numWind
+        arrayOfWindDays = np.zeros(365*self.years).tolist()
+        while sum(arrayOfWindDays) < self.NumWindDays:
+            i = randrange(0,len(arrayOfWindDays))
+            arrayOfWindDays[i] = 1
+        powerWind = [x * Wind for x in arrayOfWindDays]
+        powerWindBASE = []
+        powerWECost = []
+        for i in range(len(numOfDays)):
+            powerWECost.append(self.EcostWind*self.numWind)
+        for i in range(len(arrayOfWindDays)): 
+            j = 0
+            PowerSum = 0
+            while j < i:
+                #trying to add the power of wind so that we have an increasing graph.
+                #so each 
+                PowerSum += powerWind[j]
+                j += 1
+            powerWindBASE.append(PowerSum)
+        plt.figure(1)
+        plt.xlabel("Days")
+        plt.ylabel("MW Produced")
+        plt.plot(numOfDays,powerWindBASE,label='Wind Power')
+        plt.plot(numOfDays,powerWECost,label='Wind Energy Cost')
+        plt.title("Wind Break Even")
+        plt.legend()
+        plt.show()
+        
+    def breakEvenN(self):
+        "breakeven point of Nuclear and hydropower"
+        numOfDays = self.dn.tolist()
+        powerNuCost = []
+        powerNuclearBASE = []
+        powerNu = [self.Nuclear] * self.dn
+        for i in range(len(numOfDays)):
+            powerNuCost.append(self.EcostNuclear*self.numNuclear)
+            j = 0
+            PowerSum = 0
+            while j < i:
+                PowerSum += powerNu[j]
+                j += 1
+            powerNuclearBASE.append(PowerSum)
+        
+        plt.figure(1)
+        plt.xlabel("Days")
+        plt.ylabel("MW Produced")
+        plt.yscale("log")
+        plt.plot(numOfDays,powerNuclearBASE,label='Traditional Nuclear Power')
+        plt.plot(numOfDays,powerNuCost,label='Nuclear Energy Cost')
+        plt.title("Nuclear Break Even")
+        plt.legend()
+        plt.show()
+        
+  
+latitude = 40
+NumberOfWindyDays = 75
+effSolar = 0.20
+areaSolar = 100000000/4
+NumberOfWind = 1000
+NumberOfSunny = 200
+NumNuclear = 1
+years = 1
+
+      
+
+
+
+        
